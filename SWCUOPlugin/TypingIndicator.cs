@@ -4,19 +4,21 @@ namespace Assistant
 {
     public class TypingIndicator
     {
-        public DateTime LastTypingTime { get; private set; } = DateTime.MinValue;
+        public DateTime LastTypingPacket { get; private set; } = DateTime.MinValue;
+        public int TypingCount { get; private set; } = 0;
 
         private TimeSpan TypingDelay { get; } = TimeSpan.FromSeconds(5);
 
         public void Update()
         {
-            long elapsedTicks = Environment.TickCount64 - LastTypingTime.Ticks;
-
-            if (elapsedTicks > TypingDelay.Ticks)
+            long elapsedTicks = Environment.TickCount64 - LastTypingPacket.Ticks;
+            if (elapsedTicks > TypingDelay.Ticks && TypingCount > 10)
             {
-                LastTypingTime = DateTime.UtcNow;
+                LastTypingPacket = DateTime.UtcNow;
+                TypingCount = 0;
                 SendTypingPacket();
             }
+            TypingCount++;
         }
 
         private static void SendTypingPacket()
