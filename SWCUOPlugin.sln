@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SWCUOPlugin", "SWCUOPlugin\SWCUOPlugin.csproj", "{F15EF76A-1BE7-4489-9363-2D8A0A3DC813}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FNA.Core", "external\FNA\FNA.Core.csproj", "{B28359FE-C07F-4D70-9848-9D67949CD523}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F15EF76A-1BE7-4489-9363-2D8A0A3DC813}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F15EF76A-1BE7-4489-9363-2D8A0A3DC813}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F15EF76A-1BE7-4489-9363-2D8A0A3DC813}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F15EF76A-1BE7-4489-9363-2D8A0A3DC813}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B28359FE-C07F-4D70-9848-9D67949CD523}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B28359FE-C07F-4D70-9848-9D67949CD523}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B28359FE-C07F-4D70-9848-9D67949CD523}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B28359FE-C07F-4D70-9848-9D67949CD523}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
