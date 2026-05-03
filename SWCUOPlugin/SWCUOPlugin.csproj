@@ -9,9 +9,15 @@
         <Nullable>enable</Nullable>
         <ImplicitUsings>disable</ImplicitUsings>
         <AssemblyName>SWCUOPlugin</AssemblyName>
+        <PlatformTarget>x64</PlatformTarget>
     </PropertyGroup>
 
     <ItemGroup>
       <ProjectReference Include="..\external\FNA\FNA.Core.csproj" />
+    </ItemGroup>
+    <ItemGroup>
+        <Reference Include="cuoapi">
+            <HintPath>..\external\cuoapi.dll</HintPath>
+        </Reference>
     </ItemGroup>
 </Project>
