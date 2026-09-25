@@ -1,8 +1,9 @@
 # SWCUOPlugin
 
 A managed (C#) plugin for the [ClassicUO](https://github.com/ClassicUO/ClassicUO) Ultima Online client.
-Currently, it hooks SDL key events and sends a typing-indicator packet (`TypingIndicator`):
+It hooks SDL key events and sends a typing-indicator packet (`TypingIndicator`):
 extended command `0xBF` with custom subcommand `0xEF`, which the server must handle.
+It also writes received text and emotes to a journal file (`Journal`).
 
 ## Layout
 
@@ -10,7 +11,10 @@ extended command `0xBF` with custom subcommand `0xEF`, which the server must han
   - `Engine.cs` – entry point. ClassicUO finds `Assistant.Engine.Install(IntPtr header)` via reflection,
     passing a `PluginHeader*`. Host functions are bound from the header, plugin callbacks are written back into it.
   - `NativeTrampoline.cs` – native jump stubs used for every function pointer crossing the plugin/host boundary (see below).
-  - `TypingIndicator.cs` – plugin feature logic.
+  - `TypingIndicator.cs` – typing indicator feature.
+  - `Journal.cs` – journal feature: parses received speech/cliloc packets (0x1C, 0xAE, 0xC1, 0xCC) and appends them
+    to `<folder>/<character>_<date>.txt`. The character name comes from the outgoing 0x5D/0x00 packet.
+  - `Config.cs` – reads `SWCUOPlugin.ini` (key=value) next to the DLL, creating it with defaults if missing.
   - `Sdl.cs` – the few SDL3 event structs/constants the plugin reads (hand-written, no FNA dependency).
   - `DebugLog.cs` – debug output: console window on Windows, `SWCUOPlugin.log` next to the DLL on all OSes.
     Debug builds only: methods are `[Conditional("DEBUG")]`, so Release builds strip all calls and the implementation.

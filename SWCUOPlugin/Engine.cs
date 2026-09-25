@@ -26,6 +26,11 @@ delegate short GetPacketLengthFn(int packetId);
 
 [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
 [return: MarshalAs(UnmanagedType.I1)]
+delegate bool GetClilocFn(int cliloc, [MarshalAs(UnmanagedType.LPStr)] string args, bool capitalize,
+                          [MarshalAs(UnmanagedType.LPStr)] out string buffer);
+
+[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+[return: MarshalAs(UnmanagedType.I1)]
 delegate bool PacketNewFn(IntPtr data, ref int length);
 
 // Plugin callbacks registered by the plugin
@@ -122,6 +127,7 @@ namespace Assistant
         private static SetTitleFn?          _setTitle;
         private static GetUOFilePathFn?     _getUOFilePath;
         private static GetPacketLengthFn?   _getPacketLength;
+        private static GetClilocFn?         _getCliloc;
         private static PacketNewFn?         _sendToClientNew;
         private static PacketNewFn?         _sendToServerNew;
 
@@ -153,6 +159,7 @@ namespace Assistant
 
         #region PluginState
         private static TypingIndicator _typingIndicator = new TypingIndicator();
+        private static Journal? _journal;
         #endregion
         
         public static unsafe void Install(IntPtr header)
@@ -180,6 +187,9 @@ namespace Assistant
             DebugLog.Write($"ClientVersion=0x{h->ClientVersion:X}, SDL_Window=0x{h->SDL_Window.ToInt64():X}, HWND=0x{h->HWND.ToInt64():X}");
             _typingIndicator = new TypingIndicator();
 
+            var config = Config.Load();
+            _journal = config.JournalEnabled ? new Journal(config.JournalFolder) : null;
+
             // Capture host function pointers
             Bind(h->GetPlayerPosition, ref _getPlayerPosition);
             Bind(h->CastSpell,         ref _castSpell);
@@ -187,6 +197,7 @@ namespace Assistant
             Bind(h->SetTitle,          ref _setTitle);
             Bind(h->GetUOFilePath,     ref _getUOFilePath);
             Bind(h->GetPacketLength,   ref _getPacketLength);
+            Bind(h->GetCliloc,         ref _getCliloc);
             Bind(h->Recv_new,          ref _sendToClientNew);
             Bind(h->Send_new,          ref _sendToServerNew);
 
@@ -236,8 +247,19 @@ namespace Assistant
         }
 
         private static void HandleConnected()    => DebugLog.Write("OnConnected called");
-        private static void HandleDisconnected() => DebugLog.Write("OnDisconnected called");
-        private static void HandleClientClose()  => DebugLog.Write("OnClientClosing called");
+
+        private static void HandleDisconnected()
+        {
+            DebugLog.Write("OnDisconnected called");
+            _journal?.Close();
+        }
+
+        private static void HandleClientClose()
+        {
+            DebugLog.Write("OnClientClosing called");
+            _journal?.Close();
+        }
+
         private static void HandleFocusGained()  => DebugLog.Once(nameof(HandleFocusGained), "OnFocusGained first call");
         private static void HandleFocusLost()    => DebugLog.Once(nameof(HandleFocusLost), "OnFocusLost first call");
 
@@ -257,12 +279,28 @@ namespace Assistant
         private static bool HandleRecvNew(IntPtr data, ref int length)
         {
             DebugLog.Once(nameof(HandleRecvNew), $"OnRecv_new first call, length={length}");
+            try
+            {
+                _journal?.OnRecv(data, length);
+            }
+            catch (Exception ex)
+            {
+                DebugLog.Once("Journal OnRecv failed", $"Journal OnRecv failed (further errors suppressed): {ex}");
+            }
             return true;
         }
 
         private static bool HandleSendNew(IntPtr data, ref int length)
         {
             DebugLog.Once(nameof(HandleSendNew), $"OnSend_new first call, length={length}");
+            try
+            {
+                _journal?.OnSend(data, length);
+            }
+            catch (Exception ex)
+            {
+                DebugLog.Once("Journal OnSend failed", $"Journal OnSend failed (further errors suppressed): {ex}");
+            }
             return true;
         }
 
@@ -315,6 +353,10 @@ namespace Assistant
         public static void  SetTitle(string title)             => _setTitle?.Invoke(title);
         public static string GetUOFilePath()                   => _getUOFilePath?.Invoke() ?? string.Empty;
         public static short GetPacketLength(int id)            => _getPacketLength?.Invoke(id) ?? -1;
+
+        /// <summary>Translates a cliloc with tab-separated arguments; null if unknown or the host doesn't provide it.</summary>
+        public static string? GetCliloc(int cliloc, string args, bool capitalize)
+            => _getCliloc != null && _getCliloc(cliloc, args, capitalize, out string buffer) ? buffer : null;
 
         // The legacy ref byte[] host functions don't marshal correctly across a real
         // native boundary, so pin the array and use the pointer-based API instead.
