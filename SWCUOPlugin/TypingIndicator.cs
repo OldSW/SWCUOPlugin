@@ -9,12 +9,20 @@ namespace Assistant
 
         private TimeSpan TypingDelay { get; } = TimeSpan.FromSeconds(5);
 
+        /// <summary>Call when a message is sent (Enter), so the next message can trigger the indicator right away.</summary>
+        public void Reset()
+        {
+            TypingCount = 0;
+            LastTypingPacket = DateTime.MinValue;
+        }
+
+        /// <summary>Call on every letter key release.</summary>
         public void Update()
         {
-            long elapsedTicks = Environment.TickCount64 - LastTypingPacket.Ticks;
-            if (elapsedTicks > TypingDelay.Ticks && TypingCount > 10)
+            DateTime now = DateTime.UtcNow;
+            if (now - LastTypingPacket > TypingDelay && TypingCount > 10)
             {
-                LastTypingPacket = DateTime.UtcNow;
+                LastTypingPacket = now;
                 TypingCount = 0;
                 SendTypingPacket();
             }
@@ -23,28 +31,17 @@ namespace Assistant
 
         private static void SendTypingPacket()
         {
-            // Packet 0xAD — Unicode Speech Request (client → server)
-            // https://docs.polserver.com/packets/index.php?Packet=0xAD (PolServer packet reference)
-            // Type 0 = regular speech, font 3 = normal, colour 0x0026 = default
-            const string text = "[typing]";   // zero-width placeholder; no visible message
-            byte[] textBytes = System.Text.Encoding.BigEndianUnicode.GetBytes(text + "\0");
-
-            int headerSize = 13;
-            int totalLength = headerSize + textBytes.Length;
+            // Packet 0xBF — General Information / extended command (client → server)
+            // Subcommand 0xEF — custom typing indicator, handled server-side via
+            // PacketHandlers.RegisterExtended(0xEF, ...) (see the swcuors README).
+            int totalLength = 5;
 
             var packet = new byte[totalLength];
             int i = 0;
-            packet[i++] = 0xAD;                          // packet id
+            packet[i++] = 0xBF;                          // packet id
             packet[i++] = (byte)(totalLength >> 8);      // length high
             packet[i++] = (byte)(totalLength & 0xFF);    // length low
-            packet[i++] = 0x00;                          // type: regular
-            packet[i++] = 0x00; packet[i++] = 0x03;     // font: 3
-            packet[i++] = 0x00; packet[i++] = 0x26;     // colour: 0x0026
-            packet[i++] = 0x00;                          // language high
-            packet[i++] = 0x00; packet[i++] = 0x00;     // language mid/low
-            packet[i++] = 0x00;                          // language terminator
-
-            Array.Copy(textBytes, 0, packet, i, textBytes.Length);
+            packet[i++] = 0x00; packet[i++] = 0xEF;     // subcommand: 0x00EF
 
             Engine.SendToServer(ref packet, ref totalLength);
         }
