@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using SDL3;
 
@@ -158,8 +159,27 @@ namespace Assistant
         
         public static unsafe void Install(IntPtr header)
         {
-            var h = (PluginHeader*)header;
+            DebugLog.Init();
+            DebugLog.Write($"Install called, header=0x{header.ToInt64():X}");
+            DebugLog.Write($"Runtime: {RuntimeInformation.FrameworkDescription}, OS: {RuntimeInformation.OSDescription}, " +
+                           $"arch: {RuntimeInformation.ProcessArchitecture}, plugin: {typeof(Engine).Assembly.Location}");
+
+            try
+            {
+                InstallCore((PluginHeader*)header);
+                DebugLog.Write("Install finished");
+            }
+            catch (Exception ex)
+            {
+                DebugLog.Write($"Install failed: {ex}");
+                throw;
+            }
+        }
+
+        private static unsafe void InstallCore(PluginHeader* h)
+        {
             _clientVersion = h->ClientVersion;
+            DebugLog.Write($"ClientVersion=0x{h->ClientVersion:X}, SDL_Window=0x{h->SDL_Window.ToInt64():X}, HWND=0x{h->HWND.ToInt64():X}");
             _typingIndicator = new TypingIndicator();
 
             // Capture host function pointers
@@ -194,53 +214,97 @@ namespace Assistant
         // pointer in its delegate cache (which would hand back the other side's delegate
         // type and throw InvalidCastException).
         private static void Bind<T>(IntPtr ptr, ref T? field) where T : Delegate
-            => field = ptr != IntPtr.Zero
+        {
+            field = ptr != IntPtr.Zero
                 ? Marshal.GetDelegateForFunctionPointer<T>(NativeTrampoline.Create(ptr))
                 : null;
+            DebugLog.Write($"Bind {typeof(T).Name}: host=0x{ptr.ToInt64():X}{(field == null ? " (not provided)" : "")}");
+        }
 
         private static IntPtr Pin(Delegate d)
-            => NativeTrampoline.Create(Marshal.GetFunctionPointerForDelegate(d));
+        {
+            IntPtr raw = Marshal.GetFunctionPointerForDelegate(d);
+            IntPtr trampoline = NativeTrampoline.Create(raw);
+            DebugLog.Write($"Pin {d.Method.Name}: delegate=0x{raw.ToInt64():X} -> trampoline=0x{trampoline.ToInt64():X}");
+            return trampoline;
+        }
 
         // ── Event handlers ──────────────────────────────────────────────────
 
         private static void HandleInitialize()
         {
+            DebugLog.Write("OnInitialize called");
             _setTitle?.Invoke($"SWCUOPlugin (CUO {_clientVersion})");
         }
 
-        private static void HandleConnected()   { }
-        private static void HandleDisconnected(){ }
-        private static void HandleClientClose() { }
-        private static void HandleFocusGained() { }
-        private static void HandleFocusLost()   { }
+        private static void HandleConnected()    => DebugLog.Write("OnConnected called");
+        private static void HandleDisconnected() => DebugLog.Write("OnDisconnected called");
+        private static void HandleClientClose()  => DebugLog.Write("OnClientClosing called");
+        private static void HandleFocusGained()  => DebugLog.Once(nameof(HandleFocusGained), "OnFocusGained first call");
+        private static void HandleFocusLost()    => DebugLog.Once(nameof(HandleFocusLost), "OnFocusLost first call");
 
         private static void HandleTick()
         {
+            DebugLog.Once(nameof(HandleTick), "Tick first call");
             _getPlayerPosition?.Invoke(out _playerX, out _playerY, out _playerZ);
         }
 
         private static void HandlePositionChanged(int x, int y, int z)
         {
+            DebugLog.Once(nameof(HandlePositionChanged), $"OnPlayerPositionChanged first call ({x}, {y}, {z})");
             _playerX = x; _playerY = y; _playerZ = z;
         }
 
         // Return false to block the packet; return true to let it through.
-        private static bool HandleRecvNew(IntPtr data, ref int length) => true;
-        private static bool HandleSendNew(IntPtr data, ref int length) => true;
+        private static bool HandleRecvNew(IntPtr data, ref int length)
+        {
+            DebugLog.Once(nameof(HandleRecvNew), $"OnRecv_new first call, length={length}");
+            return true;
+        }
+
+        private static bool HandleSendNew(IntPtr data, ref int length)
+        {
+            DebugLog.Once(nameof(HandleSendNew), $"OnSend_new first call, length={length}");
+            return true;
+        }
 
         // Return false to consume the hotkey (prevent ClassicUO from processing it).
-        private static bool HandleHotkey(int key, int mod, bool pressed) => true;
+        private static bool HandleHotkey(int key, int mod, bool pressed)
+        {
+            DebugLog.Once(nameof(HandleHotkey), $"OnHotkeyPressed first call, key={key}");
+            return true;
+        }
 
-        private static void HandleMouse(int button, int wheel) { }
+        private static void HandleMouse(int button, int wheel)
+            => DebugLog.Once(nameof(HandleMouse), "OnMouse first call");
 
         // Return non-zero to indicate the event was handled and should not be processed further.
-        private static unsafe int HandleWndProc(IntPtr e)
+        // Kept free of SDL/FNA types so it can still log if FNA fails to load (see ProcessSdlEvent).
+        private static int HandleWndProc(IntPtr e)
+        {
+            DebugLog.Once(nameof(HandleWndProc), "OnWndProc first call");
+            try
+            {
+                return ProcessSdlEvent(e);
+            }
+            catch (Exception ex)
+            {
+                DebugLog.Once("ProcessSdlEvent failed", $"OnWndProc failed (further errors suppressed): {ex}");
+                return 0;
+            }
+        }
+
+        // NoInlining: if FNA's SDL types can't be loaded, the exception is thrown when this method is
+        // compiled, i.e. at the call inside HandleWndProc's try block.
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static unsafe int ProcessSdlEvent(IntPtr e)
         {
             var sdlEvent = (SDL.SDL_Event*)e;
             var type = (SDL.SDL_EventType)sdlEvent->type;
             if (type == SDL.SDL_EventType.SDL_EVENT_KEY_UP)
             {
                 var scancode = sdlEvent->key.scancode;
+                DebugLog.Write($"Key up: {scancode}");
                 if (scancode >= SDL.SDL_Scancode.SDL_SCANCODE_A && scancode <= SDL.SDL_Scancode.SDL_SCANCODE_Z)
                     _typingIndicator.Update();
                 else if (scancode == SDL.SDL_Scancode.SDL_SCANCODE_RETURN || scancode == SDL.SDL_Scancode.SDL_SCANCODE_KP_ENTER)

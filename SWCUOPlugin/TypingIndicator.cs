@@ -43,7 +43,8 @@ namespace Assistant
             packet[i++] = (byte)(totalLength & 0xFF);    // length low
             packet[i++] = 0x00; packet[i++] = 0xEF;     // subcommand: 0x00EF
 
-            Engine.SendToServer(ref packet, ref totalLength);
+            bool sent = Engine.SendToServer(ref packet, ref totalLength);
+            DebugLog.Write($"Typing packet 0xBF/0xEF sent: {sent}");
         }
     }
 }
