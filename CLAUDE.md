@@ -13,7 +13,8 @@ extended command `0xBF` with custom subcommand `0xEF`, which the server must han
   - `TypingIndicator.cs` – plugin feature logic.
   - `Sdl.cs` – the few SDL3 event structs/constants the plugin reads (hand-written, no FNA dependency).
   - `DebugLog.cs` – debug output: console window on Windows, `SWCUOPlugin.log` next to the DLL on all OSes.
-    Toggle with `DebugLog.Enabled`. No log file at all means `Install` was never called.
+    Debug builds only: methods are `[Conditional("DEBUG")]`, so Release builds strip all calls and the implementation.
+    No log file in a Debug build means `Install` was never called.
 - `NativeTrampolineTest/` – console app that verifies the trampoline (links `SWCUOPlugin/NativeTrampoline.cs`, exit code 0 = pass).
 - `external/FNA` – git submodule (FNA-XNA). No longer referenced by the plugin; only useful as a reference for SDL3 definitions.
 - `ConsoleApp1/`, `Test/` – local scratch projects, not part of the plugin.
@@ -29,6 +30,9 @@ extended command `0xBF` with custom subcommand `0xEF`, which the server must han
 - Submodules (optional, only for the FNA reference sources): `git submodule update --init`
 - Build: `dotnet build SWCUOPlugin/SWCUOPlugin.csproj` → `SWCUOPlugin/bin/Debug/net472/SWCUOPlugin.dll`
 - Test trampoline: `dotnet run --project NativeTrampolineTest`
+- CI (`.github/workflows/`): `build.yml` builds Release + runs the trampoline test on every push/PR.
+  `release.yaml` runs on tags `*.*.*` (e.g. `1.0.0`), stamps the tag as assembly version and attaches
+  `SWCUOPlugin-<tag>.zip` (Release DLL, no debug logging) to a GitHub release.
 - The csproj references `external/cuoapi.dll` via HintPath; the file is not in the repo and nothing currently uses it.
 
 ## ClassicUO interop – important

@@ -1,0 +1,39 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    name: Build & release
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Build (Release)
+        run: dotnet build SWCUOPlugin/SWCUOPlugin.csproj -c Release -p:Version=${{ github.ref_name }}
+
+      - name: Test trampoline
+        run: dotnet run --project NativeTrampolineTest
+
+      - name: Zip plugin
+        run: |
+          mkdir SWCUOPlugin-dist
+          cp SWCUOPlugin/bin/Release/net472/SWCUOPlugin.dll SWCUOPlugin-dist/
+          cd SWCUOPlugin-dist && zip ../SWCUOPlugin-${{ github.ref_name }}.zip SWCUOPlugin.dll
+
+      - name: Upload to GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: SWCUOPlugin-${{ github.ref_name }}.zip
