@@ -14,6 +14,32 @@ While you type a chat message, the plugin tells the server so it can show a typi
 - The packet is the extended command `0xBF` with the custom subcommand `0xEF` (5 bytes: `BF 00 05 00 EF`).
   The server needs a handler for it, see [Server setup](#server-setup).
 
+### Journal
+
+The plugin writes all text the client receives – speech, emotes, whispers, yells, spells, guild/alliance chat and
+system messages – to a text file per character and day, e.g. `Journal/Jörg_2026-09-25.txt`:
+
+```
+[14:03:12] Bob: Grüß dich
+[14:03:15] [Emote] Alice: *winkt*
+[14:03:20] [System] You see: a chair
+```
+
+Object labels (single-clicking items/mobiles) are skipped. Files are UTF-8 and appended to, so restarting the client keeps the day's log.
+
+## Configuration
+
+On first start the plugin creates `SWCUOPlugin.ini` next to `SWCUOPlugin.dll`:
+
+```ini
+# Write received speech, emotes and system messages to a text file per character and day.
+JournalEnabled=true
+# Absolute path, or relative to the plugin folder. Environment variables like %USERPROFILE% are expanded.
+JournalFolder=Journal
+```
+
+Changes take effect after restarting the client.
+
 ## Installation
 
 1. Download `SWCUOPlugin-<version>.zip` from the [releases](https://github.com/OldSW/SWCUOPlugin/releases).
