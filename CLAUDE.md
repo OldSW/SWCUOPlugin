@@ -11,15 +11,23 @@ extended command `0xBF` with custom subcommand `0xEF`, which the server must han
     passing a `PluginHeader*`. Host functions are bound from the header, plugin callbacks are written back into it.
   - `NativeTrampoline.cs` – native jump stubs used for every function pointer crossing the plugin/host boundary (see below).
   - `TypingIndicator.cs` – plugin feature logic.
+  - `Sdl.cs` – the few SDL3 event structs/constants the plugin reads (hand-written, no FNA dependency).
+  - `DebugLog.cs` – debug output: console window on Windows, `SWCUOPlugin.log` next to the DLL on all OSes.
+    Toggle with `DebugLog.Enabled`. No log file at all means `Install` was never called.
 - `NativeTrampolineTest/` – console app that verifies the trampoline (links `SWCUOPlugin/NativeTrampoline.cs`, exit code 0 = pass).
-- `external/FNA` – git submodule (FNA-XNA), referenced for the `SDL3` bindings (`SDL.SDL_Event` etc.).
+- `external/FNA` – git submodule (FNA-XNA). No longer referenced by the plugin; only useful as a reference for SDL3 definitions.
 - `ConsoleApp1/`, `Test/` – local scratch projects, not part of the plugin.
+
 
 ## Build & test
 
-- Requires .NET SDK 10 (`global.json`: `10.0.100`, `rollForward: latestMinor`). The plugin itself targets `net8.0`, x64 platform target, unsafe code enabled, C# 9.
-- Clone with submodules: `git submodule update --init`
-- Build: `dotnet build SWCUOPlugin/SWCUOPlugin.csproj`
+- Requires .NET SDK 10 (`global.json`: `10.0.100`, `rollForward: latestMinor`). The plugin itself targets `net472`, x64 platform target, unsafe code enabled, C# 9.
+- **Keep the plugin on `net472` with no dependencies beyond the .NET Framework.** On Windows, `ClassicUO.exe` is the
+  Bootstrap running on .NET Framework 4.7.2 and loads the plugin via `Assembly.LoadFile`; a `net8.0` assembly or a missing
+  dependency makes it silently skip the plugin (ClassicUO still logs "Plugin … loaded."). Only APIs available in
+  .NET Framework 4.7.2 may be used (e.g. no `Environment.TickCount64`, `Span<T>` without a package).
+- Submodules (optional, only for the FNA reference sources): `git submodule update --init`
+- Build: `dotnet build SWCUOPlugin/SWCUOPlugin.csproj` → `SWCUOPlugin/bin/Debug/net472/SWCUOPlugin.dll`
 - Test trampoline: `dotnet run --project NativeTrampolineTest`
 - The csproj references `external/cuoapi.dll` via HintPath; the file is not in the repo and nothing currently uses it.
 

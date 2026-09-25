@@ -1,9 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <!-- Bootstrap (the ClassicUO launcher that loads plugins) targets net472.
-             Our assembly must be compatible with that runtime. -->
-        <TargetFramework>net8.0</TargetFramework>
+        <!-- On Windows, ClassicUO.exe (the Bootstrap that loads managed plugins) runs on .NET Framework 4.7.2.
+             A net8.0 assembly can't be loaded there (Assistant.Engine isn't found and the plugin is silently
+             skipped). net472 assemblies also load on .NET (Core). -->
+        <TargetFramework>net472</TargetFramework>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <LangVersion>9.0</LangVersion>
         <Nullable>enable</Nullable>
@@ -12,9 +13,6 @@
         <PlatformTarget>x64</PlatformTarget>
     </PropertyGroup>
 
-    <ItemGroup>
-      <ProjectReference Include="..\external\FNA\FNA.Core.csproj" />
-    </ItemGroup>
     <ItemGroup>
         <Reference Include="cuoapi">
             <HintPath>..\external\cuoapi.dll</HintPath>

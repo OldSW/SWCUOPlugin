@@ -1,7 +1,5 @@
 using System;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using SDL3;
 
 // ─── Delegate types ────────────────────────────────────────────────────────
 
@@ -279,36 +277,25 @@ namespace Assistant
             => DebugLog.Once(nameof(HandleMouse), "OnMouse first call");
 
         // Return non-zero to indicate the event was handled and should not be processed further.
-        // Kept free of SDL/FNA types so it can still log if FNA fails to load (see ProcessSdlEvent).
-        private static int HandleWndProc(IntPtr e)
+        private static unsafe int HandleWndProc(IntPtr e)
         {
             DebugLog.Once(nameof(HandleWndProc), "OnWndProc first call");
             try
             {
-                return ProcessSdlEvent(e);
+                var key = (SdlKeyboardEvent*)e;
+                if (key->type == Sdl.EVENT_KEY_UP)
+                {
+                    int scancode = key->scancode;
+                    DebugLog.Write($"Key up: scancode {scancode}");
+                    if (scancode >= Sdl.SCANCODE_A && scancode <= Sdl.SCANCODE_Z)
+                        _typingIndicator.Update();
+                    else if (scancode == Sdl.SCANCODE_RETURN || scancode == Sdl.SCANCODE_KP_ENTER)
+                        _typingIndicator.Reset();
+                }
             }
             catch (Exception ex)
             {
-                DebugLog.Once("ProcessSdlEvent failed", $"OnWndProc failed (further errors suppressed): {ex}");
-                return 0;
-            }
-        }
-
-        // NoInlining: if FNA's SDL types can't be loaded, the exception is thrown when this method is
-        // compiled, i.e. at the call inside HandleWndProc's try block.
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        private static unsafe int ProcessSdlEvent(IntPtr e)
-        {
-            var sdlEvent = (SDL.SDL_Event*)e;
-            var type = (SDL.SDL_EventType)sdlEvent->type;
-            if (type == SDL.SDL_EventType.SDL_EVENT_KEY_UP)
-            {
-                var scancode = sdlEvent->key.scancode;
-                DebugLog.Write($"Key up: {scancode}");
-                if (scancode >= SDL.SDL_Scancode.SDL_SCANCODE_A && scancode <= SDL.SDL_Scancode.SDL_SCANCODE_Z)
-                    _typingIndicator.Update();
-                else if (scancode == SDL.SDL_Scancode.SDL_SCANCODE_RETURN || scancode == SDL.SDL_Scancode.SDL_SCANCODE_KP_ENTER)
-                    _typingIndicator.Reset();
+                DebugLog.Once("HandleWndProc failed", $"OnWndProc failed (further errors suppressed): {ex}");
             }
             return 0;
         }
