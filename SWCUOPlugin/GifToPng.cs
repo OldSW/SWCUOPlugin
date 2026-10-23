@@ -11,15 +11,57 @@ namespace Assistant
     /// </summary>
     public static class GifToPng
     {
-        public static byte[] Convert(byte[] gif)
+        /// <param name="scale">Resize factor, only shrinking (0 &lt; scale &lt;= 1) is supported.</param>
+        public static byte[] Convert(byte[] gif, double scale = 1.0)
         {
             int width, height;
             byte[] rgba = DecodeFirstFrame(gif, out width, out height);
+            if (scale < 1.0)
+                rgba = Downscale(rgba, ref width, ref height, scale);
             return EncodePng(rgba, width, height);
         }
 
-        public static bool IsPng(byte[] data)
-            => data.Length >= 8 && data[0] == 0x89 && data[1] == 'P' && data[2] == 'N' && data[3] == 'G';
+        // Box filter: every target pixel averages the source pixels it covers, weighted by alpha so
+        // transparent pixels don't bleed their (black) color into the edges.
+        private static byte[] Downscale(byte[] src, ref int width, ref int height, double scale)
+        {
+            int dw = Math.Max(1, (int)Math.Round(width * scale));
+            int dh = Math.Max(1, (int)Math.Round(height * scale));
+            var dst = new byte[dw * dh * 4];
+
+            for (int y = 0; y < dh; y++)
+            {
+                int y0 = y * height / dh, y1 = Math.Max(y0 + 1, (y + 1) * height / dh);
+                for (int x = 0; x < dw; x++)
+                {
+                    int x0 = x * width / dw, x1 = Math.Max(x0 + 1, (x + 1) * width / dw);
+                    long r = 0, g = 0, b = 0, a = 0;
+                    int n = 0;
+                    for (int sy = y0; sy < y1; sy++)
+                        for (int sx = x0; sx < x1; sx++)
+                        {
+                            int o = (sy * width + sx) * 4;
+                            int alpha = src[o + 3];
+                            r += src[o] * alpha;
+                            g += src[o + 1] * alpha;
+                            b += src[o + 2] * alpha;
+                            a += alpha;
+                            n++;
+                        }
+                    int d = (y * dw + x) * 4;
+                    if (a > 0)
+                    {
+                        dst[d] = (byte)((r + a / 2) / a);
+                        dst[d + 1] = (byte)((g + a / 2) / a);
+                        dst[d + 2] = (byte)((b + a / 2) / a);
+                    }
+                    dst[d + 3] = (byte)((a + n / 2) / n);
+                }
+            }
+            width = dw;
+            height = dh;
+            return dst;
+        }
 
         // ── GIF ─────────────────────────────────────────────────────────────
 

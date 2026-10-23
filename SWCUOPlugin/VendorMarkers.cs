@@ -20,6 +20,9 @@ namespace Assistant
     {
         public const string DefaultUrl = "https://alte-schattenwelt.de/api/pois/vendors";
         public const string DefaultIconBaseUrl = "https://alte-schattenwelt.de/map/";
+        // The source icons are too large for the world map.
+        private const double IconScale = 0.5;
+
         public const string FileName = "SWCUOPlugin_Vendors.csv";
 
         [DataContract]
@@ -129,7 +132,7 @@ namespace Assistant
 
         /// <summary>
         /// Downloads the icon of every subtype in use, converts the GIFs to PNG and saves them as
-        /// <c>Data/Client/MapIcons/sw_&lt;name&gt;.png</c> (existing PNGs are kept; ClassicUO only loads .png/.jpg/.cur/.ico there).
+        /// <c>Data/Client/MapIcons/sw_&lt;name&gt;.png</c> scaled to 50%, refreshed on every start; ClassicUO only loads .png/.jpg/.cur/.ico there).
         /// Returns subtype -> ClassicUO icon name.
         /// </summary>
         private static Dictionary<string, string> DownloadIcons(PoiList list, List<Poi> pois, string iconBaseUrl, string iconDir)
@@ -161,11 +164,8 @@ namespace Assistant
 
                     try
                     {
-                        if (!HasPng(file))
-                        {
-                            byte[] data = client.DownloadData(new Uri(baseUri, iconPath));
-                            File.WriteAllBytes(file, GifToPng.IsPng(data) ? data : GifToPng.Convert(data));
-                        }
+                        byte[] data = client.DownloadData(new Uri(baseUri, iconPath));
+                        File.WriteAllBytes(file, GifToPng.Convert(data, IconScale));
                         result[subtype] = name.ToString();
                     }
                     catch (Exception ex)
@@ -176,15 +176,6 @@ namespace Assistant
             }
             DebugLog.Write($"VendorMarkers: {result.Count} icons available in {iconDir}");
             return result;
-        }
-
-        private static bool HasPng(string file)
-        {
-            if (!File.Exists(file))
-                return false;
-            var head = new byte[8];
-            using (var fs = File.OpenRead(file))
-                return fs.Read(head, 0, 8) == 8 && GifToPng.IsPng(head);
         }
 
         // Mirrors CUOEnviroment.ExecutablePath: AppContext.BaseDirectory on .NET Framework, the working directory otherwise.
