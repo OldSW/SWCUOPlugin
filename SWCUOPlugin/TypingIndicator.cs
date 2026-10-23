@@ -7,6 +7,9 @@ namespace Assistant
         public DateTime LastTypingPacket { get; private set; } = DateTime.MinValue;
         public int TypingCount { get; private set; } = 0;
 
+        /// <summary>True once the server has attached us to a mobile (0x1B login confirm); the server drops clients that send 0xBF/0xEF before that.</summary>
+        public bool InWorld { get; set; }
+
         private TimeSpan TypingDelay { get; } = TimeSpan.FromSeconds(5);
 
         /// <summary>Call when a message is sent (Enter), so the next message can trigger the indicator right away.</summary>
@@ -19,6 +22,9 @@ namespace Assistant
         /// <summary>Call on every letter key release.</summary>
         public void Update()
         {
+            if (!InWorld)
+                return;
+
             DateTime now = DateTime.UtcNow;
             if (now - LastTypingPacket > TypingDelay && TypingCount > 10)
             {

@@ -284,6 +284,16 @@ namespace Assistant
             DebugLog.Once(nameof(HandleRecvNew), $"OnRecv_new first call, length={length}");
             try
             {
+                // 0x1B = login confirm: the server has attached us to a mobile
+                if (length > 0 && Marshal.ReadByte(data) == 0x1B)
+                    _typingIndicator.InWorld = true;
+            }
+            catch (Exception ex)
+            {
+                DebugLog.Once("InWorld recv failed", $"InWorld recv tracking failed (further errors suppressed): {ex}");
+            }
+            try
+            {
                 _journal?.OnRecv(data, length);
             }
             catch (Exception ex)
@@ -296,6 +306,20 @@ namespace Assistant
         private static bool HandleSendNew(IntPtr data, ref int length)
         {
             DebugLog.Once(nameof(HandleSendNew), $"OnSend_new first call, length={length}");
+            try
+            {
+                // 0x00 create character, 0x5D play character, 0x80/0x91 login: not in the world until 0x1B arrives
+                if (length > 0)
+                {
+                    byte id = Marshal.ReadByte(data);
+                    if (id == 0x00 || id == 0x5D || id == 0x80 || id == 0x91)
+                        _typingIndicator.InWorld = false;
+                }
+            }
+            catch (Exception ex)
+            {
+                DebugLog.Once("InWorld send failed", $"InWorld send tracking failed (further errors suppressed): {ex}");
+            }
             try
             {
                 _journal?.OnSend(data, length);
