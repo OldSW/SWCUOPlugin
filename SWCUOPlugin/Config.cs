@@ -24,6 +24,9 @@ namespace Assistant
         /// <summary>Endpoint returning the vendor POIs as JSON.</summary>
         public string VendorMarkersUrl { get; private set; } = VendorMarkers.DefaultUrl;
 
+        /// <summary>Base URL the icon paths of the POI response are resolved against.</summary>
+        public string VendorMarkersIconBaseUrl { get; private set; } = VendorMarkers.DefaultIconBaseUrl;
+
         private const string DefaultContent =
             "# SWCUOPlugin settings\n" +
             "\n" +
@@ -35,7 +38,9 @@ namespace Assistant
             "# Download the vendor POIs at startup and write them to Data/Client/SWCUOPlugin_Vendors.csv (world map markers).\n" +
             "VendorMarkersEnabled=true\n" +
             "# Where the vendor POIs are downloaded from.\n" +
-            "VendorMarkersUrl=" + VendorMarkers.DefaultUrl + "\n";
+            "VendorMarkersUrl=" + VendorMarkers.DefaultUrl + "\n" +
+            "# Base URL for the icons (saved to Data/Client/MapIcons as sw_<type>.png).\n" +
+            "VendorMarkersIconBaseUrl=" + VendorMarkers.DefaultIconBaseUrl + "\n";
 
         public static Config Load()
         {
@@ -61,6 +66,9 @@ namespace Assistant
 
                 if (values.TryGetValue("VendorMarkersUrl", out string? url) && url.Length > 0)
                     config.VendorMarkersUrl = url;
+
+                if (values.TryGetValue("VendorMarkersIconBaseUrl", out string? iconUrl) && iconUrl.Length > 0)
+                    config.VendorMarkersIconBaseUrl = iconUrl;
 
                 if (values.TryGetValue("JournalFolder", out string? folder) && folder.Length > 0)
                     config.JournalFolder = Path.GetFullPath(Path.Combine(dir, Environment.ExpandEnvironmentVariables(folder)));

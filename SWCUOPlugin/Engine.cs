@@ -191,7 +191,7 @@ namespace Assistant
             _journal = config.JournalEnabled ? new Journal(config.JournalFolder) : null;
 
             if (config.VendorMarkersEnabled)
-                VendorMarkers.UpdateAsync(config.VendorMarkersUrl);
+                VendorMarkers.UpdateAsync(config.VendorMarkersUrl, config.VendorMarkersIconBaseUrl);
 
             // Capture host function pointers
             Bind(h->GetPlayerPosition, ref _getPlayerPosition);

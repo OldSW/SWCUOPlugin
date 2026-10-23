@@ -19,12 +19,26 @@ namespace Assistant
     public static class VendorMarkers
     {
         public const string DefaultUrl = "https://alte-schattenwelt.de/api/pois/vendors";
+        public const string DefaultIconBaseUrl = "https://alte-schattenwelt.de/map/";
         public const string FileName = "SWCUOPlugin_Vendors.csv";
 
         [DataContract]
         private class PoiList
         {
-            [DataMember(Name = "pois")] public List<Poi>? Pois { get; set; }
+            [DataMember(Name = "pois")]  public List<Poi>? Pois { get; set; }
+            [DataMember(Name = "types")] public Dictionary<string, PoiType>? Types { get; set; }
+        }
+
+        [DataContract]
+        private class PoiType
+        {
+            [DataMember(Name = "subtypes")] public Dictionary<string, Subtype>? Subtypes { get; set; }
+        }
+
+        [DataContract]
+        private class Subtype
+        {
+            [DataMember(Name = "icon")] public string? Icon { get; set; }
         }
 
         [DataContract]
@@ -44,13 +58,13 @@ namespace Assistant
         }
 
         /// <summary>Starts the download in the background so client startup isn't blocked.</summary>
-        public static void UpdateAsync(string url)
+        public static void UpdateAsync(string url, string iconBaseUrl)
         {
             Task.Run(() =>
             {
                 try
                 {
-                    Update(url);
+                    Update(url, iconBaseUrl);
                 }
                 catch (Exception ex)
                 {
@@ -59,7 +73,7 @@ namespace Assistant
             });
         }
 
-        private static void Update(string url)
+        private static void Update(string url, string iconBaseUrl)
         {
             string dir = Path.Combine(ClientDirectory(), "Data", "Client");
             string path = Path.Combine(dir, FileName);
@@ -69,14 +83,18 @@ namespace Assistant
             using (var client = new WebClient())
                 json = client.DownloadData(url);
 
-            List<Poi>? pois;
+            PoiList? list;
+            var settings = new DataContractJsonSerializerSettings { UseSimpleDictionaryFormat = true };
             using (var stream = new MemoryStream(json))
-                pois = ((PoiList?)new DataContractJsonSerializer(typeof(PoiList)).ReadObject(stream))?.Pois;
+                list = (PoiList?)new DataContractJsonSerializer(typeof(PoiList), settings).ReadObject(stream);
+            List<Poi>? pois = list?.Pois;
             if (pois == null || pois.Count == 0)
             {
                 DebugLog.Write("VendorMarkers: response contained no POIs, keeping existing file");
                 return;
             }
+
+            Dictionary<string, string> icons = DownloadIcons(list!, pois, iconBaseUrl, Path.Combine(dir, "MapIcons"));
 
             var csv = new StringBuilder();
             int count = 0;
@@ -94,7 +112,7 @@ namespace Assistant
                    .Append(poi.Position.Y.ToString(CultureInfo.InvariantCulture)).Append(',')
                    .Append(poi.MapId.ToString(CultureInfo.InvariantCulture)).Append(',')
                    .Append(label).Append(',')
-                   .Append(subtype.Replace(',', ' ').ToLowerInvariant()).Append(',')
+                   .Append(icons.TryGetValue(subtype, out string? icon) ? icon : "").Append(',')
                    .Append("yellow").Append(",3\n");
                 count++;
             }
@@ -107,6 +125,66 @@ namespace Assistant
                 File.Delete(path);
             File.Move(tmp, path);
             DebugLog.Write($"VendorMarkers: wrote {count} markers to {path}");
+        }
+
+        /// <summary>
+        /// Downloads the icon of every subtype in use, converts the GIFs to PNG and saves them as
+        /// <c>Data/Client/MapIcons/sw_&lt;name&gt;.png</c> (existing PNGs are kept; ClassicUO only loads .png/.jpg/.cur/.ico there).
+        /// Returns subtype -> ClassicUO icon name.
+        /// </summary>
+        private static Dictionary<string, string> DownloadIcons(PoiList list, List<Poi> pois, string iconBaseUrl, string iconDir)
+        {
+            var result = new Dictionary<string, string>();
+            var paths = new Dictionary<string, string>();
+            if (list.Types != null)
+                foreach (var type in list.Types.Values)
+                    if (type.Subtypes != null)
+                        foreach (var sub in type.Subtypes)
+                            if (!string.IsNullOrEmpty(sub.Value.Icon))
+                                paths[sub.Key] = sub.Value.Icon!;
+
+            Directory.CreateDirectory(iconDir);
+            var baseUri = new Uri(iconBaseUrl.EndsWith("/") ? iconBaseUrl : iconBaseUrl + "/");
+            using (var client = new WebClient())
+            {
+                foreach (Poi poi in pois)
+                {
+                    string? subtype = poi.Subtype;
+                    if (string.IsNullOrEmpty(subtype) || result.ContainsKey(subtype!) || !paths.TryGetValue(subtype!, out string? iconPath))
+                        continue;
+
+                    // Marker icon names are lowercased by ClassicUO; keep the file name safe and separate from the user's own icons.
+                    var name = new StringBuilder("sw_");
+                    foreach (char c in subtype!.ToLowerInvariant())
+                        name.Append(char.IsLetterOrDigit(c) ? c : '_');
+                    string file = Path.Combine(iconDir, name + ".png");
+
+                    try
+                    {
+                        if (!HasPng(file))
+                        {
+                            byte[] data = client.DownloadData(new Uri(baseUri, iconPath));
+                            File.WriteAllBytes(file, GifToPng.IsPng(data) ? data : GifToPng.Convert(data));
+                        }
+                        result[subtype] = name.ToString();
+                    }
+                    catch (Exception ex)
+                    {
+                        DebugLog.Write($"VendorMarkers: icon {iconPath} failed: {ex.Message}");
+                    }
+                }
+            }
+            DebugLog.Write($"VendorMarkers: {result.Count} icons available in {iconDir}");
+            return result;
+        }
+
+        private static bool HasPng(string file)
+        {
+            if (!File.Exists(file))
+                return false;
+            var head = new byte[8];
+            using (var fs = File.OpenRead(file))
+                return fs.Read(head, 0, 8) == 8 && GifToPng.IsPng(head);
         }
 
         // Mirrors CUOEnviroment.ExecutablePath: AppContext.BaseDirectory on .NET Framework, the working directory otherwise.
