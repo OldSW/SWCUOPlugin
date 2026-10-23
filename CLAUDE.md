@@ -14,6 +14,9 @@ It also writes received text and emotes to a journal file (`Journal`).
   - `TypingIndicator.cs` – typing indicator feature.
   - `Journal.cs` – journal feature: parses received speech/cliloc packets (0x1C, 0xAE, 0xC1, 0xCC) and appends them
     to `<folder>/<character>_<date>.txt`. The character name comes from the outgoing 0x5D/0x00 packet.
+  - `VendorMarkers.cs` – on load, downloads `https://alte-schattenwelt.de/api/pois/vendors` (background task) and writes
+    `Data/Client/SWCUOPlugin_Vendors.csv` in ClassicUO's world map CSV marker format (`x,y,mapindex,name,icon,color,zoom`;
+    colors are named, no blank lines – CUO's CSV reader aborts on them). Existing file is kept if the download fails.
   - `Config.cs` – reads `SWCUOPlugin.ini` (key=value) next to the DLL, creating it with defaults if missing.
   - `Sdl.cs` – the few SDL3 event structs/constants the plugin reads (hand-written, no FNA dependency).
   - `DebugLog.cs` – debug output: console window on Windows, `SWCUOPlugin.log` next to the DLL on all OSes.

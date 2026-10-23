@@ -18,13 +18,24 @@ namespace Assistant
         /// <summary>Absolute path. Relative paths in the ini are resolved against the plugin directory.</summary>
         public string JournalFolder { get; private set; } = "";
 
+        /// <summary>Download the vendor POIs at startup and write them as a ClassicUO world map marker file.</summary>
+        public bool VendorMarkersEnabled { get; private set; } = true;
+
+        /// <summary>Endpoint returning the vendor POIs as JSON.</summary>
+        public string VendorMarkersUrl { get; private set; } = VendorMarkers.DefaultUrl;
+
         private const string DefaultContent =
             "# SWCUOPlugin settings\n" +
             "\n" +
             "# Write received speech, emotes and system messages to a text file per character and day.\n" +
             "JournalEnabled=true\n" +
             "# Absolute path, or relative to the plugin folder. Environment variables like %USERPROFILE% are expanded.\n" +
-            "JournalFolder=Journal\n";
+            "JournalFolder=Journal\n" +
+            "\n" +
+            "# Download the vendor POIs at startup and write them to Data/Client/SWCUOPlugin_Vendors.csv (world map markers).\n" +
+            "VendorMarkersEnabled=true\n" +
+            "# Where the vendor POIs are downloaded from.\n" +
+            "VendorMarkersUrl=" + VendorMarkers.DefaultUrl + "\n";
 
         public static Config Load()
         {
@@ -44,6 +55,12 @@ namespace Assistant
 
                 if (values.TryGetValue("JournalEnabled", out string? enabled) && bool.TryParse(enabled, out bool b))
                     config.JournalEnabled = b;
+
+                if (values.TryGetValue("VendorMarkersEnabled", out string? markers) && bool.TryParse(markers, out bool m))
+                    config.VendorMarkersEnabled = m;
+
+                if (values.TryGetValue("VendorMarkersUrl", out string? url) && url.Length > 0)
+                    config.VendorMarkersUrl = url;
 
                 if (values.TryGetValue("JournalFolder", out string? folder) && folder.Length > 0)
                     config.JournalFolder = Path.GetFullPath(Path.Combine(dir, Environment.ExpandEnvironmentVariables(folder)));

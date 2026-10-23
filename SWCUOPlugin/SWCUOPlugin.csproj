@@ -14,6 +14,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <Reference Include="System.Runtime.Serialization" />
         <Reference Include="cuoapi">
             <HintPath>..\external\cuoapi.dll</HintPath>
         </Reference>

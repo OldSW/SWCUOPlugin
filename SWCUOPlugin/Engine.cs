@@ -190,6 +190,9 @@ namespace Assistant
             var config = Config.Load();
             _journal = config.JournalEnabled ? new Journal(config.JournalFolder) : null;
 
+            if (config.VendorMarkersEnabled)
+                VendorMarkers.UpdateAsync(config.VendorMarkersUrl);
+
             // Capture host function pointers
             Bind(h->GetPlayerPosition, ref _getPlayerPosition);
             Bind(h->CastSpell,         ref _castSpell);
